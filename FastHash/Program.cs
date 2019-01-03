@@ -42,6 +42,7 @@ namespace FastHash
 						Console.WriteLine("Collisions found: " + collisions);
 					}
 				});
+				Console.WriteLine("The test was completed, collisions found: " + collisions);
 
 				hashs.Clear();
 				var endNumber = 216553;
@@ -63,7 +64,7 @@ namespace FastHash
 				Console.WriteLine("The test was completed, collisions found: " + collisions);
 
 				hashs.Clear();
-				Console.WriteLine("Search for collisions in " + endNumber + "GUIDs random");
+				Console.WriteLine("Search for collisions in " + endNumber + " GUIDs random");
 				collisions = 0;
 				Parallel.For(1, toExclusive, n =>
 				{
@@ -101,7 +102,7 @@ namespace FastHash
 			}
 			var totalSeconds2 = (DateTime.Now - start).TotalSeconds;
 			Console.WriteLine("The test was completed in " + totalSeconds2 + " sec.");
-			Console.WriteLine("The algorithm BrunoHash256 is faster than SHA256 by " + Math.Round(totalSeconds1 / totalSeconds2, 1) + "times");
+			Console.WriteLine("The algorithm BrunoHash256 is faster than SHA256 by " + Math.Round(totalSeconds1 / totalSeconds2, 1) + " times");
 			Console.WriteLine("Test concluded, press any key");
 			Console.ReadKey();
 		}
