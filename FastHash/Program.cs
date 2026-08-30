@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -10,117 +12,256 @@ namespace FastHash
 	{
 		static void Main(string[] args)
 		{
-			// This is a collision test, a comparison can be made through this link, where the results of other algorithms are published:
-			// https://softwareengineering.stackexchange.com/questions/49550/which-hashing-algorithm-is-best-for-uniqueness-and-speed
-			var file = "words.txt";
-			var path = System.IO.Directory.GetCurrentDirectory();
-			var fileName = path + @"\" + file;
-			if (!System.IO.File.Exists(fileName))
-				fileName = path + @"\..\..\" + file;
-			if (!System.IO.File.Exists(fileName))
-				Console.WriteLine("The collision test can not continue, file not found: " + file);
-			else
+			var collisionTest = true;
+			var benchmarkTest = false;
+			if (collisionTest)
 			{
-				Console.WriteLine("Collision tests, and benchmarks are underway, these operations take some time, wait ...");
-				string[] lines = System.IO.File.ReadAllLines(fileName);
-				for (int i = 0; i < lines.Length; i++)
+				var h = BitConverter.ToUInt32(GetBrunoHash(BitConverter.GetBytes(0),32), 0);
+
+
+				// This is a collision test, a comparison can be made through this link, where the results of other algorithms are published:
+				// https://softwareengineering.stackexchange.com/questions/49550/which-hashing-algorithm-is-best-for-uniqueness-and-speed
+				var file = "words.txt";
+				var path = System.IO.Directory.GetCurrentDirectory();
+				var fileName = path + @"\" + file;
+				if (!System.IO.File.Exists(fileName))
+					fileName = path + @"\..\..\" + file;
+				if (!System.IO.File.Exists(fileName))
+					Console.WriteLine("The collision test can not continue, file not found: " + file);
+				else
 				{
-					lines[i] = lines[i].ToLower();
+					Console.WriteLine(
+						"BrunoHash32: Collision tests and benchmarks are underway, these operations take some time, wait ...");
+					string[] lines = System.IO.File.ReadAllLines(fileName);
+					for (int i = 0; i < lines.Length; i++)
+					{
+						lines[i] = lines[i].ToLower();
+					}
+
+					var hashs = new List<uint>();
+					Console.WriteLine("Search for collisions in a dictionary of " + lines.Length + " lowercase English words");
+					var collisions = 0;
+					Parallel.ForEach(lines, word =>
+					{
+						var hash = BitConverter.ToUInt32(GetBrunoHash(Encoding.ASCII.GetBytes(word), 32), 0);
+						if (!hashs.Contains(hash))
+							hashs.Add(hash);
+						else
+						{
+							var x = hashs[hashs.IndexOf(hash)];
+							collisions += 1;
+							Console.WriteLine("Collisions found: " + collisions);
+							Console.WriteLine("hashs: " + hashs.Count);
+						}
+					});
+					Console.WriteLine("The test was completed, collisions found: " + collisions);
+
+					hashs.Clear();
+					var endNumber = 216553;
+					Console.WriteLine("Search for collisions in a numerical sequence from 1 to " + endNumber);
+					collisions = 0;
+					var toExclusive = endNumber + 1;
+					Parallel.For(1, toExclusive, n =>
+					{
+						var hash = BitConverter.ToUInt32(GetBrunoHash(BitConverter.GetBytes(n),32), 0);
+						if (!hashs.Contains(hash))
+							hashs.Add(hash);
+						else
+						{
+							var x = hashs[hashs.IndexOf(hash)];
+							collisions += 1;
+							Console.WriteLine("Collisions found: " + collisions);
+							Console.WriteLine("hashs: " + hashs.Count);
+						}
+					});
+					Console.WriteLine("The test was completed, collisions found: " + collisions);
+
+					hashs.Clear();
+					Console.WriteLine("Search for collisions in " + endNumber + " GUIDs random");
+					collisions = 0;
+					Parallel.For(1, toExclusive, n =>
+					{
+						var hash = BitConverter.ToUInt32(GetBrunoHash32(Guid.NewGuid().ToByteArray()), 0);
+						if (!hashs.Contains(hash))
+							hashs.Add(hash);
+						else
+						{
+							var x = hashs[hashs.IndexOf(hash)];
+							collisions += 1;
+							Console.WriteLine("Collisions found: " + collisions);
+							Console.WriteLine("hashs: " + hashs.Count);
+						}
+					});
+					Console.WriteLine("The test was completed, collisions found: " + collisions);
 				}
-				var hashs = new List<byte[]>();
-				Console.WriteLine("Search for collisions in a dictionary of " + lines.Length + " lowercase English words");
-				var collisions = 0;
-				Parallel.ForEach(lines, word =>
-				{
-					var hash = GetBrunoHash(Encoding.ASCII.GetBytes(word));
-					if (!hashs.Contains(hash))
-						hashs.Add(hash);
-					else
-					{
-						var x = hashs[hashs.IndexOf(hash)];
-						collisions += 1;
-						Console.WriteLine("Collisions found: " + collisions);
-					}
-				});
-				Console.WriteLine("The test was completed, collisions found: " + collisions);
-
-				hashs.Clear();
-				var endNumber = 216553;
-				Console.WriteLine("Search for collisions in a numerical sequence from 1 to " + endNumber);
-				collisions = 0;
-				var toExclusive = endNumber + 1;
-				Parallel.For(1, toExclusive, n =>
-				{
-					var hash = GetBrunoHash(BitConverter.GetBytes(n));
-					if (!hashs.Contains(hash))
-						hashs.Add(hash);
-					else
-					{
-						var x = hashs[hashs.IndexOf(hash)];
-						collisions += 1;
-						Console.WriteLine("Collisions found: " + collisions);
-					}
-				});
-				Console.WriteLine("The test was completed, collisions found: " + collisions);
-
-				hashs.Clear();
-				Console.WriteLine("Search for collisions in " + endNumber + " GUIDs random");
-				collisions = 0;
-				Parallel.For(1, toExclusive, n =>
-				{
-					var hash = GetBrunoHash(Guid.NewGuid().ToByteArray());
-					if (!hashs.Contains(hash))
-						hashs.Add(hash);
-					else
-					{
-						var x = hashs[hashs.IndexOf(hash)];
-						collisions += 1;
-						Console.WriteLine("Collisions found: " + collisions);
-					}
-				});
-				Console.WriteLine("The test was completed, collisions found: " + collisions);
 			}
 
-			// Benchmark test:
-			// Comparison between SHA256 and BrunoHash256
-			Random rnd = new Random();
-			byte[] b = new byte[1024 * 1012];
-			rnd.NextBytes(b);
-			Console.WriteLine("Start speed test SHA256");
-			var start = DateTime.Now;
-			for (int i = 0; i < 10000; i++)
+	
+
+			if (benchmarkTest)
 			{
-				var x1 = GetHash(b);
+				// Benchmark test:
+				// Comparison between SHA256 and BrunoHash256
+				Random rnd = new Random();
+				byte[] b = new byte[1024 * 1012];
+				rnd.NextBytes(b);
+				Console.WriteLine("Start speed test SHA256");
+				var start = DateTime.Now;
+				for (int i = 0; i < 10000; i++)
+				{
+					//var x1 = GetHash(b);
+				}
+				var totalSeconds1 = (DateTime.Now - start).TotalSeconds;
+				Console.WriteLine("The test was completed in " + totalSeconds1 + " sec.");
+
+				Console.WriteLine("Start speed test BrunoHash256");
+				start = DateTime.Now;
+				for (int i = 0; i < 10000; i++)// riportare a 10000
+				{
+					var x1 = GetBrunoHash256(b);
+				}
+				var totalSeconds2 = (DateTime.Now - start).TotalSeconds;
+				Console.WriteLine("The test was completed in " + totalSeconds2 + " sec.");
+
+				Console.WriteLine("Start speed test BrunoHash");
+				start = DateTime.Now;
+				for (int i = 0; i < 10000; i++)
+				{
+					var x1 = GetBrunoHash(b, 256);
+				}
+				var totalSeconds3 = (DateTime.Now - start).TotalSeconds;
+				Console.WriteLine("The test was completed in " + totalSeconds3 + " sec.");//29.34 //26.5
+
+
+				Console.WriteLine("The algorithm BrunoHash256 is faster than SHA256 by " +
+													Math.Round(totalSeconds1 / totalSeconds2, 1) + " times");
+				Console.WriteLine("Test concluded, press any key");
+				Console.ReadKey();
 			}
-			var totalSeconds1 = (DateTime.Now - start).TotalSeconds;
-			Console.WriteLine("The test was completed in " + totalSeconds1 + " sec.");
-			Console.WriteLine("Start speed test BrunoHash256");
-			start = DateTime.Now;
-			for (int i = 0; i < 10000; i++)
-			{
-				var x1 = GetBrunoHash(b);
-			}
-			var totalSeconds2 = (DateTime.Now - start).TotalSeconds;
-			Console.WriteLine("The test was completed in " + totalSeconds2 + " sec.");
-			Console.WriteLine("The algorithm BrunoHash256 is faster than SHA256 by " + Math.Round(totalSeconds1 / totalSeconds2, 1) + " times");
-			Console.WriteLine("Test concluded, press any key");
-			Console.ReadKey();
 		}
 
-		/// <summary>
-		/// The fastest hash algorithm.
-		/// This algorithm is designed not to burden the CPU in all those cases where frequent hashing operations are required: cryptography, digital signatures, checksum affixing, cryptocurrency, etc.
-		/// </summary>
-		/// <param name="data">The data on which to compute the hash</param>
-		/// <returns>A 32-byte hash (256 bit)</returns>
+		public static byte[] GetBrunoHash(byte[] data, int bits = 256)
+		{
+			var bitsX32 = bits / 32;
+			var outputBytes = bitsX32 * 4;
+			var bytes = outputBytes <= 8 ? 8 : outputBytes;
+			if (data == null)
+				data = new byte[0];
+			var newData = new byte[data.Length + bytes];
+			data.CopyTo(newData, 0);
+			var rnd = new byte[]
+			{
+				60, 36, 12, 23, 7, 58, 24, 15, 20, 55, 61, 41, 56, 57, 0, 16, 46, 50, 63, 4, 17, 31, 3, 45, 38, 1, 51, 19, 28,
+				5, 21, 8, 34, 22, 49, 32, 54, 14, 37, 26, 30, 18, 62, 59, 13, 39, 33, 9, 6, 47, 42, 27, 10, 52, 53, 40, 2, 44,
+				25, 11, 43, 48, 29, 35
+			};
+			for (int n = 0; n < 2; n++)
+			{
+				byte oldShift = newData[bytes - 2];
+				byte shift = newData[bytes - 1];
+				for (byte i = 0; i < bytes; i++)
+				{
+					newData[i] = rnd[(newData[i] << shift ^ oldShift + i) & 0b11111];
+					oldShift = shift;
+					shift = newData[i];
+				}
+			}
+
+			var np = (bitsX32 + 1) / 2;
+			var p = new ulong[np];
+			ulong op = 0;
+			for (int i = 0; i < data.Length; i += bytes)
+			{
+				for (int n = 0; n < np; n++)
+				{
+					p[n] ^= BitConverter.ToUInt64(newData, i + n * 8) ^ (op << (int)p[n]);
+					op = p[n];
+				}
+			}
+
+			var result = new byte[0];
+			foreach (var value in p)
+			{
+				result = result.Concat(BitConverter.GetBytes(value)).ToArray();
+			}
+			if (outputBytes % 8 !=0)
+			{
+				var uints = outputBytes / 4;
+				var tmp = new uint[uints];
+				for (int i = 0; i < result.Length; i += 4)
+				{
+					tmp[i % uints] ^= BitConverter.ToUInt32(result, i);
+				}
+				result = new byte[0];
+				foreach (var value in tmp)
+				{
+					result = result.Concat(BitConverter.GetBytes(value)).ToArray();
+				}
+			}
+			return result;
+		}
+
 		public static byte[] GetBrunoHash(byte[] data)
 		{
 			if (data == null)
 				data = new byte[0];
 			var newData = new byte[data.Length + 32];
 			data.CopyTo(newData, 0);
-			ulong p1 = 0, p2 = 0, p3 = 0, p4 = 0;
-			for (int i = 0; i < data.Length; i = i + 32)
+			var rnd = new byte[]
+			{
+				60, 36, 12, 23, 7, 58, 24, 15, 20, 55, 61, 41, 56, 57, 0, 16, 46, 50, 63, 4, 17, 31, 3, 45, 38, 1, 51, 19, 28,
+				5, 21, 8, 34, 22, 49, 32, 54, 14, 37, 26, 30, 18, 62, 59, 13, 39, 33, 9, 6, 47, 42, 27, 10, 52, 53, 40, 2, 44,
+				25, 11, 43, 48, 29, 35
+			};
+			for (int n = 0; n < 2; n++)
+			{
+				byte oldShift = newData[30];
+				byte shift = newData[31];
+				for (byte i = 0; i < 32; i++)
+				{
+					newData[i] = rnd[(newData[i] ^ shift ^ oldShift) & 0b11111];
+					oldShift = shift;
+					shift = newData[i];
+				}
+			}
+
+			ulong p1 = 0b01010101_01010101_01010101_01010101_01010101_01010101_01010101_01010101;
+			ulong p2 = 0b00110011_00110011_00110011_00110011_00110011_00110011_00110011_00110011;
+			ulong p3 = 0b10101010_10101010_10101010_10101010_10101010_10101010_10101010_10101010;
+			ulong p4 = 0b11001100_11001100_11001100_11001100_11001100_11001100_11001100_11001100;
+
+			for (int i = 0; i < data.Length; i += 32)
+			{
+				p1 ^= BitConverter.ToUInt64(newData, i) ^ p4;
+				p2 ^= BitConverter.ToUInt64(newData, i + 8) ^ p1;
+				p3 ^= BitConverter.ToUInt64(newData, i + 16) ^ p2;
+				p4 ^= BitConverter.ToUInt64(newData, i + 24) ^ p3;
+				//p1 ^= BitConverter.ToUInt64(newData, i) ^ (p4 >> (int)p1);
+				//p2 ^= BitConverter.ToUInt64(newData, i + 8) ^ (p1 << (int)p2);
+				//p3 ^= BitConverter.ToUInt64(newData, i + 16) ^ (p2 >> (int)p3);
+				//p4 ^= BitConverter.ToUInt64(newData, i + 24) ^ (p3 >> (int)p4);
+			}
+
+			return BitConverter.GetBytes(p1).Concat(BitConverter.GetBytes(p2)).Concat(BitConverter.GetBytes(p3)).Concat(BitConverter.GetBytes(p4)).ToArray();
+		}
+
+		/// <summary>
+		/// The fastest hash 256 algorithm.
+		/// This algorithm is designed not to burden the CPU in all those cases where frequent hashing operations are required: cryptography, digital signatures, checksum affixing, cryptocurrency, etc.
+		/// </summary>
+		/// <param name="data">The data on which to compute the hash</param>
+		/// <returns>A 32-byte hash (256 bit)</returns>
+		public static byte[] GetBrunoHash256(byte[] data)
+		{
+			if (data == null)
+				data = new byte[0];
+			var newData = new byte[data.Length + 32];
+			data.CopyTo(newData, 0);
+			ulong p1 = 0b01010101_01010101_01010101_01010101_01010101_01010101_01010101_01010101;
+			ulong p2 = 0b00110011_00110011_00110011_00110011_00110011_00110011_00110011_00110011;
+			ulong p3 = 0b10101010_10101010_10101010_10101010_10101010_10101010_10101010_10101010;
+			ulong p4 = 0b11001100_11001100_11001100_11001100_11001100_11001100_11001100_11001100;
+			for (int i = 0; i < data.Length; i += 32)
 			{
 				p1 = p1 ^ BitConverter.ToUInt64(newData, i);
 				p2 = p2 ^ BitConverter.ToUInt64(newData, i + 8);
@@ -136,6 +277,7 @@ namespace FastHash
 				st1 = 4;
 				st2 = 0;
 			}
+
 			seeds[0] = BitConverter.ToInt32(BitConverter.GetBytes(p1), st1);
 			seeds[1] = BitConverter.ToInt32(BitConverter.GetBytes(p1), st2);
 			seeds[2] = BitConverter.ToInt32(BitConverter.GetBytes(p2), st1);
@@ -161,8 +303,51 @@ namespace FastHash
 				p4 = p4 ^ BitConverter.ToUInt64(br4, 0);
 			}
 
-			return BitConverter.GetBytes(p1).Concat(BitConverter.GetBytes(p2)).Concat(BitConverter.GetBytes(p3)).Concat(BitConverter.GetBytes(p4)).ToArray();
+			return BitConverter.GetBytes(p1).Concat(BitConverter.GetBytes(p2)).Concat(BitConverter.GetBytes(p3))
+				.Concat(BitConverter.GetBytes(p4)).ToArray();
 		}
+
+
+
+
+		/// <summary>
+		/// The fastest hash 32 algorithm.
+		/// This algorithm is designed not to burden the CPU in all those cases where frequent hashing operations are required: cryptography, digital signatures, checksum affixing, cryptocurrency, etc.
+		/// </summary>
+		/// <param name="data">The data on which to compute the hash</param>
+		/// <returns>A 32-byte hash (256 bit)</returns>
+		public static byte[] GetBrunoHash32(byte[] data)
+		{
+			if (data == null)
+				data = new byte[0];
+			var newData = new byte[data.Length + 32];
+			data.CopyTo(newData, 0);
+			uint p1 = 0;
+			int r = 0;
+			for (int i = 0; i < data.Length; i += 4)
+			{
+				p1 = (((p1) >> (r)) | ((p1) << (64 - (r)))) ^ BitConverter.ToUInt32(newData, i);
+				r += 1;
+				if (r == 8)
+					r = 0;
+			}
+
+			var seed = BitConverter.ToUInt32(BitConverter.GetBytes(p1), 0);
+			var rnd = seed.GetHashCode();
+			var br1 = BitConverter.GetBytes(rnd);
+			//var rnd = new Random(seed);
+			//rnd.NextBytes(br1);
+			p1 ^= BitConverter.ToUInt32(br1, 0);
+
+			//var bt = new byte[4];
+			//new Random(seed).NextBytes(bt);
+			//p1 = BitConverter.ToUInt32(bt, 0);
+			//sd += 1;
+
+			return BitConverter.GetBytes(p1);
+		}
+
+		//private static int sd = 0;
 
 		public static byte[] GetHash(byte[] data)
 		{
@@ -170,7 +355,25 @@ namespace FastHash
 			return hashType.ComputeHash(data);
 		}
 
+		private static byte GetRandomByte(byte seed)
+		{
+			var n = 822132180 * seed;
+			var bytes = BitConverter.GetBytes(n);
+			return bytes[3];
+		}
 
+		private static byte GetRandomByte2(byte seed, int k)
+		{
+			var n = k * seed;
+			var bytes = BitConverter.GetBytes(n);
+			return bytes[3];
+		}
 
+		private static ushort GetRandom(ushort seed, int i)
+		{
+			var n = i * seed;
+			var bytes = BitConverter.GetBytes(n);
+			return BitConverter.ToUInt16(bytes, 2);
+		}
 	}
 }
